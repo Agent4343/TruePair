@@ -159,8 +159,7 @@ docker-compose exec backend npm run db:seed
 
 5. **Deploy the backend**:
    - Click "New" → "GitHub Repo" → Select your forked repo
-   - Set the root directory to `backend`
-   - Railway will auto-detect and build the NestJS app
+   - Railway will auto-detect and build the NestJS app from the `backend` folder
 
 6. **Set environment variables** in Railway dashboard:
    ```
