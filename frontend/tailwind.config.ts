@@ -40,6 +40,7 @@ const config: Config = {
         'fade-in': 'fadeIn 0.3s ease-out',
         'swipe-right': 'swipeRight 0.3s ease-out',
         'swipe-left': 'swipeLeft 0.3s ease-out',
+        'pulse-slow': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
       keyframes: {
         slideUp: {

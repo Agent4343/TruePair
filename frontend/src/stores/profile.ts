@@ -1,23 +1,37 @@
 import { create } from 'zustand';
 import { api } from '@/lib/api';
 
+interface Photo {
+  id: string;
+  url: string;
+  isMain: boolean;
+}
+
+interface Prompt {
+  id: string;
+  question: string;
+  answer: string;
+}
+
 interface Profile {
   id: string;
+  userId: string;
   firstName: string;
-  displayName?: string;
   birthDate: string;
   gender: string;
   genderPreferences: string[];
+  bio?: string;
   city?: string;
   state?: string;
-  bio?: string;
-  height?: number;
   relationshipIntent?: string;
-  values?: { top: string[] };
-  lifestyle?: Record<string, number>;
-  photos: Array<{ id: string; url: string; isMain: boolean }>;
-  prompts: Array<{ id: string; question: string; answer: string }>;
-  profileStrengthScore: number;
+  height?: number;
+  education?: string;
+  occupation?: string;
+  company?: string;
+  photos: Photo[];
+  prompts: Prompt[];
+  profileStrength?: number;
+  verificationLevel?: string;
 }
 
 interface ProfileState {
@@ -25,8 +39,8 @@ interface ProfileState {
   isLoading: boolean;
   error: string | null;
   fetchProfile: () => Promise<void>;
-  createProfile: (data: any) => Promise<void>;
-  updateProfile: (data: any) => Promise<void>;
+  createProfile: (data: Partial<Profile>) => Promise<void>;
+  updateProfile: (data: Partial<Profile>) => Promise<void>;
   addPhoto: (url: string, isMain?: boolean) => Promise<void>;
   addPrompt: (question: string, answer: string) => Promise<void>;
 }
@@ -39,52 +53,68 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   fetchProfile: async () => {
     set({ isLoading: true, error: null });
     try {
-      const profile = await api.getProfile();
+      const profile = await api.profile.get();
       set({ profile, isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (err: any) {
+      set({ error: err.message, isLoading: false });
     }
   },
 
   createProfile: async (data) => {
     set({ isLoading: true, error: null });
     try {
-      const profile = await api.createProfile(data);
+      const profile = await api.profile.create(data);
       set({ profile, isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
-      throw error;
+    } catch (err: any) {
+      set({ error: err.message, isLoading: false });
+      throw err;
     }
   },
 
   updateProfile: async (data) => {
     set({ isLoading: true, error: null });
     try {
-      const profile = await api.updateProfile(data);
+      const profile = await api.profile.update(data);
       set({ profile, isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
-      throw error;
+    } catch (err: any) {
+      set({ error: err.message, isLoading: false });
+      throw err;
     }
   },
 
   addPhoto: async (url, isMain = false) => {
     try {
-      await api.addPhoto(url, isMain);
-      await get().fetchProfile();
-    } catch (error: any) {
-      set({ error: error.message });
-      throw error;
+      const photo = await api.profile.addPhoto(url, isMain);
+      const current = get().profile;
+      if (current) {
+        set({
+          profile: {
+            ...current,
+            photos: [...current.photos, photo],
+          },
+        });
+      }
+    } catch (err: any) {
+      set({ error: err.message });
+      throw err;
     }
   },
 
   addPrompt: async (question, answer) => {
     try {
-      await api.addPrompt(question, answer);
-      await get().fetchProfile();
-    } catch (error: any) {
-      set({ error: error.message });
-      throw error;
+      const prompt = await api.profile.addPrompt(question, answer);
+      const current = get().profile;
+      if (current) {
+        set({
+          profile: {
+            ...current,
+            prompts: [...current.prompts, prompt],
+          },
+        });
+      }
+    } catch (err: any) {
+      set({ error: err.message });
+      throw err;
     }
   },
 }));

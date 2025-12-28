@@ -1,41 +1,40 @@
 import { create } from 'zustand';
 import { api } from '@/lib/api';
 
-interface Match {
-  id: string;
-  otherUser: {
-    id: string;
-    profile: {
-      firstName: string;
-      displayName?: string;
-      photos: Array<{ url: string; isMain: boolean }>;
-    };
-  };
-  overallScore: number;
-  lastMessage?: {
-    content: string;
-    createdAt: string;
-    senderId: string;
-  };
-  createdAt: string;
+interface Photo {
+  url: string;
+  isMain: boolean;
 }
 
 interface DiscoverProfile {
   id: string;
-  userId: string;
   firstName: string;
-  displayName?: string;
   birthDate: string;
-  gender: string;
-  city?: string;
   bio?: string;
+  city?: string;
+  state?: string;
   relationshipIntent?: string;
-  photos: Array<{ url: string; isMain: boolean }>;
-  prompts: Array<{ question: string; answer: string }>;
-  compatibility: {
-    overall: number;
-    reasons: string[];
+  photos: Photo[];
+  verificationLevel?: string;
+  compatibility?: number;
+}
+
+interface Match {
+  id: string;
+  matchedAt: string;
+  profile: {
+    id: string;
+    firstName: string;
+    birthDate: string;
+    city?: string;
+    photos: Photo[];
   };
+  lastMessage?: {
+    content: string;
+    createdAt: string;
+    isFromMe: boolean;
+  };
+  unreadCount: number;
 }
 
 interface MatchesState {
@@ -46,8 +45,8 @@ interface MatchesState {
   error: string | null;
   fetchMatches: () => Promise<void>;
   fetchDiscoverProfiles: () => Promise<void>;
-  likeProfile: (userId: string) => Promise<{ matched: boolean; match?: any }>;
-  passProfile: (userId: string) => Promise<void>;
+  likeProfile: (profileId: string) => Promise<{ isMatch: boolean } | null>;
+  passProfile: (profileId: string) => Promise<void>;
   nextProfile: () => void;
 }
 
@@ -61,42 +60,42 @@ export const useMatchesStore = create<MatchesState>((set, get) => ({
   fetchMatches: async () => {
     set({ isLoading: true, error: null });
     try {
-      const matches = await api.getMatches();
+      const matches = await api.matching.getMatches();
       set({ matches, isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (err: any) {
+      set({ error: err.message, isLoading: false });
     }
   },
 
   fetchDiscoverProfiles: async () => {
     set({ isLoading: true, error: null });
     try {
-      const profiles = await api.getDiscoverProfiles(20);
+      const profiles = await api.matching.getDiscover(20);
       set({ discoverProfiles: profiles, currentProfileIndex: 0, isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (err: any) {
+      set({ error: err.message, isLoading: false });
     }
   },
 
-  likeProfile: async (userId: string) => {
+  likeProfile: async (profileId) => {
     try {
-      const result = await api.likeUser(userId);
-      if (result.matched) {
-        await get().fetchMatches();
+      const result = await api.matching.like(profileId);
+      if (result.isMatch) {
+        // Refresh matches if there's a new match
+        get().fetchMatches();
       }
       return result;
-    } catch (error: any) {
-      set({ error: error.message });
-      throw error;
+    } catch (err: any) {
+      set({ error: err.message });
+      return null;
     }
   },
 
-  passProfile: async (userId: string) => {
+  passProfile: async (profileId) => {
     try {
-      await api.passUser(userId);
-    } catch (error: any) {
-      set({ error: error.message });
-      throw error;
+      await api.matching.pass(profileId);
+    } catch (err: any) {
+      set({ error: err.message });
     }
   },
 
@@ -105,7 +104,7 @@ export const useMatchesStore = create<MatchesState>((set, get) => ({
     if (currentProfileIndex < discoverProfiles.length - 1) {
       set({ currentProfileIndex: currentProfileIndex + 1 });
     } else {
-      get().fetchDiscoverProfiles();
+      set({ discoverProfiles: [], currentProfileIndex: 0 });
     }
   },
 }));

@@ -25,17 +25,17 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
 
   login: async (email: string, password: string) => {
-    const { user } = await api.login(email, password);
+    const { user } = await api.auth.login(email, password);
     set({ user, isAuthenticated: true });
   },
 
   register: async (email: string, password: string) => {
-    const { user } = await api.register(email, password);
+    const { user } = await api.auth.register(email, password);
     set({ user, isAuthenticated: true });
   },
 
   logout: () => {
-    api.logout();
+    api.auth.logout();
     set({ user: null, isAuthenticated: false });
   },
 
@@ -45,10 +45,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ isLoading: false, isAuthenticated: false });
         return;
       }
-      const user = await api.getMe();
+      const user = await api.auth.getMe();
       set({ user, isAuthenticated: true, isLoading: false });
     } catch {
-      api.logout();
+      api.auth.logout();
       set({ user: null, isAuthenticated: false, isLoading: false });
     }
   },

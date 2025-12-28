@@ -1,6 +1,6 @@
 # TrueMatch - Trust-First Dating Platform
 
-A production-ready dating application that prioritizes truth, intent alignment, and safety using AI-powered features.
+A production-ready dating application that prioritizes truth, intent alignment, and safety using AI-powered features. Includes a beautiful Next.js frontend and robust NestJS backend.
 
 ## 🎯 Core Features
 
@@ -59,11 +59,20 @@ Detects mismatch between stated goals and behavior, lowers intent confidence.
 
 ## 🛠 Tech Stack
 
-- **Backend**: NestJS, TypeScript, Prisma ORM
+### Backend
+- **Framework**: NestJS, TypeScript, Prisma ORM
 - **Database**: PostgreSQL
 - **Cache**: Redis
-- **Real-time**: WebSockets (Socket.IO)
-- **Containerization**: Docker & Docker Compose
+- **Auth**: JWT with bcrypt
+- **API Docs**: Swagger/OpenAPI
+
+### Frontend
+- **Framework**: Next.js 16 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **State**: Zustand
+- **Animations**: Framer Motion
+- **Icons**: Lucide React
 
 ## 📁 Project Structure
 
@@ -72,7 +81,7 @@ truematch/
 ├── backend/                 # NestJS API
 │   ├── prisma/
 │   │   ├── schema.prisma    # Database schema
-│   │   └── seed.ts          # Seed data
+│   │   └── migrations/      # Database migrations
 │   └── src/
 │       ├── modules/
 │       │   ├── auth/        # Authentication
@@ -80,12 +89,27 @@ truematch/
 │       │   ├── profiles/    # Profile & scoring
 │       │   ├── onboarding/  # AI questions
 │       │   ├── matching/    # Compatibility engine
-│       │   ├── messages/    # Chat & WebSocket
+│       │   ├── messages/    # Chat
 │       │   ├── safety/      # Risk & protection
 │       │   ├── trust/       # Behavior scoring
 │       │   └── ai/          # AI services
 │       ├── prisma/          # Database service
 │       └── redis/           # Cache service
+├── frontend/                # Next.js App
+│   └── src/
+│       ├── app/             # App Router pages
+│       │   ├── page.tsx     # Landing page
+│       │   ├── login/       # Authentication
+│       │   ├── register/    # Registration
+│       │   ├── onboarding/  # Profile setup
+│       │   ├── discover/    # Swipe interface
+│       │   ├── matches/     # Matches list
+│       │   ├── chat/        # Messaging
+│       │   ├── profile/     # Profile management
+│       │   └── settings/    # Settings
+│       ├── components/      # Reusable UI components
+│       ├── stores/          # Zustand state management
+│       └── lib/             # Utilities & API client
 ├── docker-compose.yml       # Container orchestration
 └── README.md
 ```
@@ -95,12 +119,14 @@ truematch/
 ### Prerequisites
 
 - Node.js 18+
-- Docker & Docker Compose
+- Docker & Docker Compose (for local development)
 - npm or yarn
 
 ### Local Development
 
-1. **Clone and install dependencies**
+#### Backend
+
+1. **Install dependencies**
 ```bash
 cd backend
 npm install
@@ -120,13 +146,34 @@ npx prisma db seed
 
 4. **Start development server**
 ```bash
-cd backend
+npm run start:dev
+```
+
+5. **Access the API**
+- Backend API: http://localhost:3001
+- API Documentation: http://localhost:3001/api/docs
+
+#### Frontend
+
+1. **Install dependencies**
+```bash
+cd frontend
+npm install
+```
+
+2. **Configure environment**
+```bash
+cp .env.example .env.local
+# Edit .env.local with your backend URL
+```
+
+3. **Start development server**
+```bash
 npm run dev
 ```
 
-5. **Access the application**
-- Backend API: http://localhost:3001
-- API Documentation: http://localhost:3001/api/docs
+4. **Access the app**
+- Frontend: http://localhost:3000
 
 ### Using Docker Compose (Full Stack)
 
@@ -143,7 +190,7 @@ docker-compose exec backend npm run db:seed
 
 ## 🚂 Railway Deployment
 
-### Quick Deploy
+### Backend Deployment
 
 1. **Fork this repository** to your GitHub account
 
@@ -159,9 +206,9 @@ docker-compose exec backend npm run db:seed
 
 5. **Deploy the backend**:
    - Click "New" → "GitHub Repo" → Select your forked repo
-   - Railway will auto-detect and build the NestJS app from the `backend` folder
+   - Railway will auto-detect and build from the `backend` folder
 
-6. **Set environment variables** in Railway dashboard:
+6. **Set environment variables**:
    ```
    JWT_SECRET=your-secure-random-string-here
    JWT_EXPIRES_IN=7d
@@ -169,55 +216,45 @@ docker-compose exec backend npm run db:seed
    FRONTEND_URL=https://your-frontend-domain.com
    ```
 
-7. **Generate a domain**:
-   - Go to your service settings
-   - Click "Generate Domain" or add a custom domain
+7. **Generate a domain** in service settings
 
-### Environment Variables for Railway
+### Frontend Deployment
 
+1. **Create a new service** in the same Railway project
+
+2. **Set root directory** to `frontend`
+
+3. **Set environment variables**:
+   ```
+   NEXT_PUBLIC_API_URL=https://your-backend-domain.railway.app
+   ```
+
+4. **Deploy** and generate a domain
+
+### Alternative: Deploy Frontend to Vercel
+
+1. Import your repository on [Vercel](https://vercel.com)
+2. Set root directory to `frontend`
+3. Add environment variable: `NEXT_PUBLIC_API_URL`
+4. Deploy!
+
+### Environment Variables
+
+#### Backend
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DATABASE_URL` | Yes | Auto-provided by Railway PostgreSQL (must reference the PostgreSQL service) |
-| `REDIS_URL` | No | Auto-provided by Railway Redis |
-| `JWT_SECRET` | Yes | Secure random string for JWT signing |
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `REDIS_URL` | No | Redis connection string |
+| `JWT_SECRET` | Yes | Secure random string for JWT |
 | `JWT_EXPIRES_IN` | No | Token expiration (default: 7d) |
 | `NODE_ENV` | No | Set to `production` |
-| `FRONTEND_URL` | No | Your frontend URL for CORS |
-| `OPENAI_API_KEY` | No | For AI features (uses rule-based fallback if not set) |
+| `FRONTEND_URL` | No | Frontend URL for CORS |
+| `OPENAI_API_KEY` | No | For AI features |
 
-### Important: Linking PostgreSQL
-
-After adding a PostgreSQL service, you need to reference it in your backend service:
-
-1. Go to your **backend service** → **Variables**
-2. Click **"Add Variable Reference"** or **"New Variable"**
-3. Add: `DATABASE_URL` = `${{Postgres.DATABASE_URL}}` (reference the PostgreSQL service)
-
-This ensures the backend can connect to the database.
-
-### Seeding Production Database
-
-After deployment, you can seed the database using Railway CLI:
-
-```bash
-# Install Railway CLI
-npm install -g @railway/cli
-
-# Login
-railway login
-
-# Link to your project
-railway link
-
-# Run seed command
-railway run npm run db:seed
-```
-
-### Health Check Endpoints
-
-- `GET /api/health` - Full health check with database status
-- `GET /api/health/ready` - Readiness probe
-- `GET /api/health/live` - Liveness probe
+#### Frontend
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `NEXT_PUBLIC_API_URL` | Yes | Backend API URL |
 
 ## 📊 Test Accounts
 
@@ -260,12 +297,6 @@ npm run test:cov
 - `DELETE /api/profiles/photos/:photoId` - Delete photo
 - `POST /api/profiles/prompts` - Add prompt
 
-### Onboarding
-- `GET /api/onboarding/questions` - Get onboarding questions
-- `GET /api/onboarding/progress` - Get progress
-- `POST /api/onboarding/answer` - Submit answer
-- `POST /api/onboarding/complete` - Complete onboarding
-
 ### Matching
 - `GET /api/matching/discover` - Get discovery profiles
 - `POST /api/matching/like/:userId` - Like a user
@@ -288,6 +319,42 @@ npm run test:cov
 
 ### Trust
 - `GET /api/trust/score` - Get own trust score
+
+## 🎨 UI Features
+
+### Landing Page
+- Beautiful hero section with feature highlights
+- Gradient design with pink/purple accent colors
+- Clear call-to-action buttons
+
+### Authentication
+- Clean login/register forms
+- Password strength indicator
+- Form validation feedback
+
+### Onboarding
+- Step-by-step profile setup wizard
+- Progress indicator
+- Easy gender/intent selection
+
+### Discovery (Swipe)
+- Card-based swipe interface
+- Drag-to-swipe with smooth animations
+- Photo gallery with navigation
+- Like/pass action buttons
+- Match celebration modal
+
+### Matches & Chat
+- New matches carousel
+- Conversation list with unread indicators
+- Real-time messaging interface
+- Message status indicators
+
+### Profile
+- Profile photo gallery
+- Trust score display
+- Profile strength meter
+- Edit capabilities
 
 ## 🔐 Security Features
 
@@ -318,25 +385,6 @@ Overall = Values × 0.35 + Lifestyle × 0.25 +
 ```
 Overall = ReplyPattern × 0.25 + Commitment × 0.30 + 
           Respect × 0.30 + ToneConsistency × 0.15
-```
-
-### Risk Index
-```
-Risk = ReportScore × 0.40 + MessageRisk × 0.35 + 
-       PatternRisk × 0.25 + Multipliers
-```
-
-## 🔧 Configuration
-
-### Environment Variables
-
-**Backend (.env)**
-```env
-DATABASE_URL=postgresql://user:pass@localhost:5432/truematch
-REDIS_URL=redis://localhost:6379
-JWT_SECRET=your-secret-key
-JWT_EXPIRES_IN=7d
-PORT=3001
 ```
 
 ## 📄 License

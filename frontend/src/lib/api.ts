@@ -47,163 +47,156 @@ class ApiClient {
     return response.json();
   }
 
-  // Auth
-  async register(email: string, password: string) {
-    const data = await this.request<{ accessToken: string; user: any }>('/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-    this.setToken(data.accessToken);
-    return data;
-  }
+  // Auth methods
+  auth = {
+    register: async (email: string, password: string) => {
+      const data = await this.request<{ accessToken: string; user: any }>('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      this.setToken(data.accessToken);
+      return data;
+    },
 
-  async login(email: string, password: string) {
-    const data = await this.request<{ accessToken: string; user: any }>('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-    this.setToken(data.accessToken);
-    return data;
-  }
+    login: async (email: string, password: string) => {
+      const data = await this.request<{ accessToken: string; user: any }>('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      this.setToken(data.accessToken);
+      return data;
+    },
 
-  async getMe() {
-    return this.request<any>('/api/auth/me');
-  }
+    getMe: () => this.request<any>('/api/auth/me'),
 
-  logout() {
-    this.setToken(null);
-  }
+    logout: () => {
+      this.setToken(null);
+    },
+  };
 
-  // Profile
-  async createProfile(data: any) {
-    return this.request<any>('/api/profiles', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
+  // Profile methods
+  profile = {
+    create: (data: any) =>
+      this.request<any>('/api/profiles', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
 
-  async getProfile() {
-    return this.request<any>('/api/profiles');
-  }
+    get: () => this.request<any>('/api/profiles'),
 
-  async updateProfile(data: any) {
-    return this.request<any>('/api/profiles', {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-  }
+    update: (data: any) =>
+      this.request<any>('/api/profiles', {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
 
-  async getProfileScore() {
-    return this.request<any>('/api/profiles/score');
-  }
+    getScore: () => this.request<any>('/api/profiles/score'),
 
-  async addPhoto(url: string, isMain = false) {
-    return this.request<any>('/api/profiles/photos', {
-      method: 'POST',
-      body: JSON.stringify({ url, isMain }),
-    });
-  }
+    addPhoto: (url: string, isMain = false) =>
+      this.request<any>('/api/profiles/photos', {
+        method: 'POST',
+        body: JSON.stringify({ url, isMain }),
+      }),
 
-  async addPrompt(question: string, answer: string) {
-    return this.request<any>('/api/profiles/prompts', {
-      method: 'POST',
-      body: JSON.stringify({ question, answer }),
-    });
-  }
+    deletePhoto: (photoId: string) =>
+      this.request<any>(`/api/profiles/photos/${photoId}`, {
+        method: 'DELETE',
+      }),
 
-  // Onboarding
-  async getOnboardingQuestions(category?: string) {
-    const query = category ? `?category=${category}` : '';
-    return this.request<any[]>(`/api/onboarding/questions${query}`);
-  }
+    addPrompt: (question: string, answer: string) =>
+      this.request<any>('/api/profiles/prompts', {
+        method: 'POST',
+        body: JSON.stringify({ question, answer }),
+      }),
+  };
 
-  async getOnboardingProgress() {
-    return this.request<any>('/api/onboarding/progress');
-  }
+  // Onboarding methods
+  onboarding = {
+    getQuestions: (category?: string) => {
+      const query = category ? `?category=${category}` : '';
+      return this.request<any[]>(`/api/onboarding/questions${query}`);
+    },
 
-  async submitAnswer(questionId: string, answer: any) {
-    return this.request<any>('/api/onboarding/answer', {
-      method: 'POST',
-      body: JSON.stringify({ questionId, answer }),
-    });
-  }
+    getProgress: () => this.request<any>('/api/onboarding/progress'),
 
-  async completeOnboarding() {
-    return this.request<any>('/api/onboarding/complete', {
-      method: 'POST',
-    });
-  }
+    submitAnswer: (questionId: string, answer: any) =>
+      this.request<any>('/api/onboarding/answer', {
+        method: 'POST',
+        body: JSON.stringify({ questionId, answer }),
+      }),
 
-  // Matching
-  async getDiscoverProfiles(limit = 10) {
-    return this.request<any[]>(`/api/matching/discover?limit=${limit}`);
-  }
+    complete: () =>
+      this.request<any>('/api/onboarding/complete', {
+        method: 'POST',
+      }),
+  };
 
-  async likeUser(userId: string) {
-    return this.request<any>(`/api/matching/like/${userId}`, {
-      method: 'POST',
-    });
-  }
+  // Matching methods
+  matching = {
+    getDiscover: (limit = 10) =>
+      this.request<any[]>(`/api/matching/discover?limit=${limit}`),
 
-  async passUser(userId: string) {
-    return this.request<any>(`/api/matching/pass/${userId}`, {
-      method: 'POST',
-    });
-  }
+    like: (userId: string) =>
+      this.request<any>(`/api/matching/like/${userId}`, {
+        method: 'POST',
+      }),
 
-  async getMatches() {
-    return this.request<any[]>('/api/matching/matches');
-  }
+    pass: (userId: string) =>
+      this.request<any>(`/api/matching/pass/${userId}`, {
+        method: 'POST',
+      }),
 
-  async getMatch(matchId: string) {
-    return this.request<any>(`/api/matching/matches/${matchId}`);
-  }
+    getMatches: () => this.request<any[]>('/api/matching/matches'),
 
-  // Messages
-  async getMessages(matchId: string, limit = 50) {
-    return this.request<any[]>(`/api/messages/match/${matchId}?limit=${limit}`);
-  }
+    getMatch: (matchId: string) =>
+      this.request<any>(`/api/matching/matches/${matchId}`),
+  };
 
-  async sendMessage(matchId: string, content: string) {
-    return this.request<any>(`/api/messages/match/${matchId}`, {
-      method: 'POST',
-      body: JSON.stringify({ content }),
-    });
-  }
+  // Messages methods
+  messages = {
+    getMessages: (matchId: string, limit = 50) =>
+      this.request<any[]>(`/api/messages/match/${matchId}?limit=${limit}`),
 
-  async markAsRead(matchId: string) {
-    return this.request<any>(`/api/messages/match/${matchId}/read`, {
-      method: 'POST',
-    });
-  }
+    sendMessage: (matchId: string, content: string) =>
+      this.request<any>(`/api/messages/match/${matchId}`, {
+        method: 'POST',
+        body: JSON.stringify({ content }),
+      }),
 
-  async getUnreadCount() {
-    return this.request<{ unreadCount: number }>('/api/messages/unread');
-  }
+    markAsRead: (matchId: string) =>
+      this.request<any>(`/api/messages/match/${matchId}/read`, {
+        method: 'POST',
+      }),
 
-  // Safety
-  async reportUser(userId: string, type: string, description?: string) {
-    return this.request<any>('/api/safety/report', {
-      method: 'POST',
-      body: JSON.stringify({ userId, type, description }),
-    });
-  }
+    getUnreadCount: () =>
+      this.request<{ unreadCount: number }>('/api/messages/unread'),
+  };
 
-  async blockUser(userId: string, reason?: string) {
-    return this.request<any>('/api/safety/block', {
-      method: 'POST',
-      body: JSON.stringify({ userId, reason }),
-    });
-  }
+  // Safety methods
+  safety = {
+    reportUser: (userId: string, type: string, description?: string) =>
+      this.request<any>('/api/safety/report', {
+        method: 'POST',
+        body: JSON.stringify({ userId, type, description }),
+      }),
 
-  async getSafetySignals(userId: string) {
-    return this.request<any[]>(`/api/safety/signals/${userId}`);
-  }
+    blockUser: (userId: string, reason?: string) =>
+      this.request<any>('/api/safety/block', {
+        method: 'POST',
+        body: JSON.stringify({ userId, reason }),
+      }),
 
-  // Trust
-  async getTrustScore() {
-    return this.request<any>('/api/trust/score');
-  }
+    getSignals: (userId: string) =>
+      this.request<any[]>(`/api/safety/signals/${userId}`),
+
+    getPreDateCheck: (matchId: string) =>
+      this.request<any>(`/api/safety/pre-date/${matchId}`),
+  };
+
+  // Trust methods
+  trust = {
+    getTrustScore: () => this.request<any>('/api/trust/score'),
+  };
 }
 
 export const api = new ApiClient();
