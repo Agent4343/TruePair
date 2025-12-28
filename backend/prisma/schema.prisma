@@ -1,0 +1,543 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+  DEACTIVATED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  NON_BINARY
+  OTHER
+}
+
+enum RelationshipIntent {
+  CASUAL
+  SHORT_TERM
+  LONG_TERM
+  MARRIAGE
+  FIGURING_OUT
+}
+
+enum QuestionCategory {
+  VALUES
+  LIFESTYLE
+  RELATIONSHIP_GOALS
+  COMMUNICATION
+  BEHAVIOR_SCENARIO
+  BOUNDARIES
+  COMMITMENT
+}
+
+enum QuestionType {
+  FREE_TEXT
+  MULTIPLE_CHOICE
+  SCALE
+  RANKING
+  SCENARIO
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+}
+
+enum ReportType {
+  HARASSMENT
+  INAPPROPRIATE_CONTENT
+  FAKE_PROFILE
+  SCAM
+  THREATS
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
+
+enum SafetySignalType {
+  VERIFIED_PHOTO
+  VERIFIED_EMAIL
+  VERIFIED_PHONE
+  CONSISTENT_PROFILE
+  RESPONSIVE_COMMUNICATOR
+  BOUNDARIES_RESPECTED
+  LONG_TERM_USER
+}
+
+enum RiskLevel {
+  NORMAL
+  MONITOR
+  RESTRICTED
+  MANUAL_REVIEW
+}
+
+enum BehaviorType {
+  MESSAGE_SENT
+  MESSAGE_RECEIVED
+  LIKE_SENT
+  LIKE_RECEIVED
+  MATCH_CREATED
+  DATE_SCHEDULED
+  DATE_COMPLETED
+  DATE_CANCELLED
+  REPORT_FILED
+  BLOCK_CREATED
+  PROFILE_UPDATED
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id                  String      @id @default(cuid())
+  email               String      @unique
+  passwordHash        String
+  status              UserStatus  @default(ACTIVE)
+  onboardingCompleted Boolean     @default(false)
+  emailVerified       Boolean     @default(false)
+  phoneVerified       Boolean     @default(false)
+  lastActiveAt        DateTime?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  // Relations
+  profile             Profile?
+  onboardingAnswers   OnboardingAnswer[]
+  likesGiven          Like[]          @relation("LikesGiven")
+  likesReceived       Like[]          @relation("LikesReceived")
+  matchesAsUserA      Match[]         @relation("MatchUserA")
+  matchesAsUserB      Match[]         @relation("MatchUserB")
+  messagesSent        Message[]       @relation("MessagesSent")
+  messagesReceived    Message[]       @relation("MessagesReceived")
+  trustScore          TrustScore?
+  behaviorLogs        BehaviorLog[]
+  riskAssessment      RiskAssessment?
+  reportsFiled        Report[]        @relation("ReportsFiled")
+  reportsReceived     Report[]        @relation("ReportsReceived")
+  safetySignals       SafetySignal[]
+  verifications       Verification[]
+  intentHistory       IntentHistory[]
+  blocksCreated       Block[]         @relation("BlocksCreated")
+  blocksReceived      Block[]         @relation("BlocksReceived")
+  scheduledDates      ScheduledDate[] @relation("DateScheduler")
+  datesAsPartner      ScheduledDate[] @relation("DatePartner")
+
+  @@index([email])
+  @@index([status])
+}
+
+// ============================================
+// PROFILE
+// ============================================
+
+model Profile {
+  id                    String            @id @default(cuid())
+  userId                String            @unique
+  firstName             String
+  displayName           String?
+  birthDate             DateTime
+  gender                Gender
+  genderPreferences     Gender[]
+  city                  String?
+  state                 String?
+  country               String?
+  latitude              Float?
+  longitude             Float?
+  bio                   String?
+  height                Int?              // in cm
+  relationshipIntent    RelationshipIntent?
+  values                Json?             // { top: string[] }
+  lifestyle             Json?             // { fitness: number, social: number, ... }
+  dealbreakers          Json?             // { mustHave: string[], cantHave: string[] }
+  
+  // Profile Strength Scores (0-100)
+  profileStrengthScore  Int               @default(0)
+  completenessScore     Int               @default(0)
+  specificityScore      Int               @default(0)
+  consistencyScore      Int               @default(0)
+  stabilityScore        Int               @default(0)
+  
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  // Relations
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  photos                Photo[]
+  prompts               ProfilePrompt[]
+
+  @@index([userId])
+  @@index([city, state])
+}
+
+model Photo {
+  id          String    @id @default(cuid())
+  profileId   String
+  url         String
+  isMain      Boolean   @default(false)
+  isVerified  Boolean   @default(false)
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  // Relations
+  profile     Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+}
+
+model ProfilePrompt {
+  id          String    @id @default(cuid())
+  profileId   String
+  question    String
+  answer      String
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  profile     Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+}
+
+// ============================================
+// ONBOARDING
+// ============================================
+
+model OnboardingQuestion {
+  id              String            @id @default(cuid())
+  category        QuestionCategory
+  questionText    String
+  questionType    QuestionType
+  options         Json?             // For multiple choice, scale ranges, etc.
+  followUpLogic   Json?             // Rules for when to ask follow-ups
+  order           Int
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+
+  // Relations
+  answers         OnboardingAnswer[]
+
+  @@index([category])
+  @@index([order])
+}
+
+model OnboardingAnswer {
+  id              String              @id @default(cuid())
+  userId          String
+  questionId      String
+  answer          Json                // Flexible structure for different question types
+  followUpCount   Int                 @default(0)
+  confidence      Float?              // AI-assessed confidence (0-1)
+  consistency     Float?              // Consistency with other answers (0-1)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  // Relations
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question        OnboardingQuestion  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  @@index([userId])
+}
+
+// ============================================
+// MATCHING
+// ============================================
+
+model Like {
+  id          String    @id @default(cuid())
+  fromUserId  String
+  toUserId    String
+  createdAt   DateTime  @default(now())
+
+  // Relations
+  fromUser    User      @relation("LikesGiven", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser      User      @relation("LikesReceived", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@unique([fromUserId, toUserId])
+  @@index([fromUserId])
+  @@index([toUserId])
+}
+
+model Match {
+  id                  String      @id @default(cuid())
+  userAId             String
+  userBId             String
+  
+  // Compatibility Scores
+  overallScore        Int         @default(0)  // 0-100
+  valuesScore         Int         @default(0)  // 35% weight
+  lifestyleScore      Int         @default(0)  // 25% weight
+  intentScore         Int         @default(0)  // 20% weight
+  communicationScore  Int         @default(0)  // 15% weight
+  logisticsScore      Int         @default(0)  // 5% weight
+  
+  topReasons          String[]    // Top 3 compatibility reasons
+  frictionPoint       String?     // Main potential friction point
+  confidenceLevel     Float?      // Match confidence (0-1)
+  
+  isActive            Boolean     @default(true)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  // Relations
+  userA               User        @relation("MatchUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB               User        @relation("MatchUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  messages            Message[]
+  scheduledDates      ScheduledDate[]
+
+  @@unique([userAId, userBId])
+  @@index([userAId])
+  @@index([userBId])
+}
+
+// ============================================
+// MESSAGING
+// ============================================
+
+model Message {
+  id              String        @id @default(cuid())
+  matchId         String
+  senderId        String
+  receiverId      String
+  content         String
+  status          MessageStatus @default(SENT)
+  safetyScore     Int?          // AI safety score (0-100)
+  safetyFlags     String[]      // Any safety concerns flagged
+  createdAt       DateTime      @default(now())
+  readAt          DateTime?
+
+  // Relations
+  match           Match         @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  sender          User          @relation("MessagesSent", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver        User          @relation("MessagesReceived", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([matchId])
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([createdAt])
+}
+
+// ============================================
+// TRUST & BEHAVIOR
+// ============================================
+
+model TrustScore {
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+  
+  // Score components (0-100)
+  overallScore          Int       @default(50)
+  replyPatternScore     Int       @default(50)  // 25% weight
+  commitmentScore       Int       @default(50)  // 30% weight (flaking, ghosting)
+  respectScore          Int       @default(50)  // 30% weight (boundaries)
+  toneConsistencyScore  Int       @default(50)  // 15% weight
+  
+  lastCalculatedAt      DateTime  @default(now())
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  // Relations
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([overallScore])
+}
+
+model BehaviorLog {
+  id            String        @id @default(cuid())
+  userId        String
+  behaviorType  BehaviorType
+  metadata      Json?         // Additional context
+  score         Int?          // Impact score (-100 to +100)
+  createdAt     DateTime      @default(now())
+
+  // Relations
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([behaviorType])
+  @@index([createdAt])
+}
+
+// ============================================
+// SAFETY & RISK
+// ============================================
+
+model RiskAssessment {
+  id              String      @id @default(cuid())
+  userId          String      @unique
+  
+  // Risk Index (0-100)
+  riskIndex       Int         @default(0)
+  riskLevel       RiskLevel   @default(NORMAL)
+  
+  // Component scores
+  reportScore     Int         @default(0)  // 40% weight
+  messageRiskScore Int        @default(0)  // 35% weight
+  patternRiskScore Int        @default(0)  // 25% weight
+  
+  // Restrictions
+  isRestricted    Boolean     @default(false)
+  restrictions    Json?       // Active restrictions
+  
+  lastAssessedAt  DateTime    @default(now())
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([riskLevel])
+}
+
+model Report {
+  id              String        @id @default(cuid())
+  reporterId      String
+  reportedUserId  String
+  type            ReportType
+  description     String?
+  evidence        Json?         // Screenshots, message IDs, etc.
+  status          ReportStatus  @default(PENDING)
+  reviewNotes     String?
+  reviewedAt      DateTime?
+  createdAt       DateTime      @default(now())
+
+  // Relations
+  reporter        User          @relation("ReportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUser    User          @relation("ReportsReceived", fields: [reportedUserId], references: [id], onDelete: Cascade)
+
+  @@index([reporterId])
+  @@index([reportedUserId])
+  @@index([status])
+}
+
+model SafetySignal {
+  id          String            @id @default(cuid())
+  userId      String
+  signalType  SafetySignalType
+  verifiedAt  DateTime          @default(now())
+  expiresAt   DateTime?
+  createdAt   DateTime          @default(now())
+
+  // Relations
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, signalType])
+  @@index([userId])
+}
+
+model Verification {
+  id              String    @id @default(cuid())
+  userId          String
+  type            String    // photo, email, phone, id
+  status          String    @default("pending")  // pending, verified, rejected
+  verificationData Json?
+  verifiedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+}
+
+model Block {
+  id            String    @id @default(cuid())
+  blockerId     String
+  blockedUserId String
+  reason        String?
+  createdAt     DateTime  @default(now())
+
+  // Relations
+  blocker       User      @relation("BlocksCreated", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedUser   User      @relation("BlocksReceived", fields: [blockedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedUserId])
+  @@index([blockerId])
+  @@index([blockedUserId])
+}
+
+// ============================================
+// INTENT TRACKING
+// ============================================
+
+model IntentHistory {
+  id              String              @id @default(cuid())
+  userId          String
+  statedIntent    RelationshipIntent
+  behaviorIntent  RelationshipIntent? // AI-inferred from behavior
+  confidence      Float               @default(1.0)
+  driftDetected   Boolean             @default(false)
+  createdAt       DateTime            @default(now())
+
+  // Relations
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ============================================
+// PRE-DATE SAFETY
+// ============================================
+
+model ScheduledDate {
+  id              String    @id @default(cuid())
+  matchId         String
+  schedulerId     String
+  partnerId       String
+  
+  dateTime        DateTime
+  location        String?
+  isPublicPlace   Boolean   @default(true)
+  
+  // Safety features
+  safetyCheckIn   Boolean   @default(false)
+  checkInTime     DateTime?
+  locationSharing Boolean   @default(false)
+  
+  // Pre-date AI analysis
+  safetyScore     Int?      // 0-100
+  concerns        String[]
+  suggestions     String[]
+  
+  status          String    @default("scheduled")  // scheduled, completed, cancelled
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  match           Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  scheduler       User      @relation("DateScheduler", fields: [schedulerId], references: [id], onDelete: Cascade)
+  partner         User      @relation("DatePartner", fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@index([matchId])
+  @@index([schedulerId])
+  @@index([partnerId])
+  @@index([dateTime])
+}
