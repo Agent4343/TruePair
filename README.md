@@ -177,13 +177,23 @@ docker-compose exec backend npm run db:seed
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DATABASE_URL` | Yes | Auto-provided by Railway PostgreSQL |
+| `DATABASE_URL` | Yes | Auto-provided by Railway PostgreSQL (must reference the PostgreSQL service) |
 | `REDIS_URL` | No | Auto-provided by Railway Redis |
 | `JWT_SECRET` | Yes | Secure random string for JWT signing |
 | `JWT_EXPIRES_IN` | No | Token expiration (default: 7d) |
 | `NODE_ENV` | No | Set to `production` |
 | `FRONTEND_URL` | No | Your frontend URL for CORS |
 | `OPENAI_API_KEY` | No | For AI features (uses rule-based fallback if not set) |
+
+### Important: Linking PostgreSQL
+
+After adding a PostgreSQL service, you need to reference it in your backend service:
+
+1. Go to your **backend service** → **Variables**
+2. Click **"Add Variable Reference"** or **"New Variable"**
+3. Add: `DATABASE_URL` = `${{Postgres.DATABASE_URL}}` (reference the PostgreSQL service)
+
+This ensures the backend can connect to the database.
 
 ### Seeding Production Database
 

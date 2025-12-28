@@ -5,7 +5,13 @@ const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const app_module_1 = require("./app.module");
 async function bootstrap() {
-    const app = await core_1.NestFactory.create(app_module_1.AppModule);
+    const logger = new common_1.Logger('Bootstrap');
+    logger.log('Starting TrueMatch API...');
+    logger.log(`Node environment: ${process.env.NODE_ENV || 'development'}`);
+    logger.log(`Database URL configured: ${process.env.DATABASE_URL ? 'Yes' : 'No'}`);
+    const app = await core_1.NestFactory.create(app_module_1.AppModule, {
+        logger: ['error', 'warn', 'log'],
+    });
     app.getHttpAdapter().getInstance().set('trust proxy', 1);
     app.useGlobalPipes(new common_1.ValidationPipe({
         whitelist: true,
