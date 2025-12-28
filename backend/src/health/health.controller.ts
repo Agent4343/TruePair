@@ -5,23 +5,10 @@ import { ApiTags, ApiOperation, ApiExcludeEndpoint } from '@nestjs/swagger';
 @Controller()
 export class HealthController {
   @Get()
+  @Redirect('/api/docs', 302)
   @ApiExcludeEndpoint()
   root() {
-    return {
-      name: 'TrueMatch API',
-      version: '1.0.0',
-      description: 'Trust-first dating platform API',
-      docs: '/api/docs',
-      health: '/api/health',
-      endpoints: {
-        auth: '/api/auth',
-        users: '/api/users',
-        profiles: '/api/profiles',
-        matching: '/api/matching',
-        messages: '/api/messages',
-        safety: '/api/safety',
-      },
-    };
+    // Redirects to Swagger API documentation
   }
 
   @Get('api/health')
