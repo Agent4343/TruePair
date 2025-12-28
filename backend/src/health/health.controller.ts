@@ -1,10 +1,30 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Controller, Get, Redirect } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiExcludeEndpoint } from '@nestjs/swagger';
 
 @ApiTags('Health')
-@Controller('api/health')
+@Controller()
 export class HealthController {
   @Get()
+  @ApiExcludeEndpoint()
+  root() {
+    return {
+      name: 'TrueMatch API',
+      version: '1.0.0',
+      description: 'Trust-first dating platform API',
+      docs: '/api/docs',
+      health: '/api/health',
+      endpoints: {
+        auth: '/api/auth',
+        users: '/api/users',
+        profiles: '/api/profiles',
+        matching: '/api/matching',
+        messages: '/api/messages',
+        safety: '/api/safety',
+      },
+    };
+  }
+
+  @Get('api/health')
   @ApiOperation({ summary: 'Health check endpoint' })
   check() {
     return {
@@ -13,13 +33,13 @@ export class HealthController {
     };
   }
 
-  @Get('ready')
+  @Get('api/health/ready')
   @ApiOperation({ summary: 'Readiness check' })
   ready() {
     return { status: 'ready' };
   }
 
-  @Get('live')
+  @Get('api/health/live')
   @ApiOperation({ summary: 'Liveness check' })
   live() {
     return { status: 'live' };
