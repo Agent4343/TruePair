@@ -6,6 +6,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { HealthModule } from './health/health.module';
+import { FaviconModule } from './favicon/favicon.module';
 
 // Feature modules
 import { AuthModule } from './modules/auth/auth.module';
@@ -28,6 +29,7 @@ import { AIModule } from './modules/ai/ai.module';
     PrismaModule,
     RedisModule,
     HealthModule,
+    FaviconModule,
     AuthModule,
     UsersModule,
     ProfilesModule,
