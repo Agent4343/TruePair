@@ -12,6 +12,7 @@ const config_1 = require("@nestjs/config");
 const schedule_1 = require("@nestjs/schedule");
 const prisma_module_1 = require("./prisma/prisma.module");
 const redis_module_1 = require("./redis/redis.module");
+const health_module_1 = require("./health/health.module");
 const auth_module_1 = require("./modules/auth/auth.module");
 const users_module_1 = require("./modules/users/users.module");
 const profiles_module_1 = require("./modules/profiles/profiles.module");
@@ -34,6 +35,7 @@ exports.AppModule = AppModule = __decorate([
             schedule_1.ScheduleModule.forRoot(),
             prisma_module_1.PrismaModule,
             redis_module_1.RedisModule,
+            health_module_1.HealthModule,
             auth_module_1.AuthModule,
             users_module_1.UsersModule,
             profiles_module_1.ProfilesModule,

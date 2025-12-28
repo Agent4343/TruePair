@@ -5,6 +5,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 // Core modules
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
+import { HealthModule } from './health/health.module';
 
 // Feature modules
 import { AuthModule } from './modules/auth/auth.module';
@@ -26,6 +27,7 @@ import { AIModule } from './modules/ai/ai.module';
     ScheduleModule.forRoot(),
     PrismaModule,
     RedisModule,
+    HealthModule,
     AuthModule,
     UsersModule,
     ProfilesModule,

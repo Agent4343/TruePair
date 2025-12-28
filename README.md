@@ -141,6 +141,75 @@ docker-compose exec backend npx prisma migrate deploy
 docker-compose exec backend npm run db:seed
 ```
 
+## 🚂 Railway Deployment
+
+### Quick Deploy
+
+1. **Fork this repository** to your GitHub account
+
+2. **Create a new project** on [Railway](https://railway.app)
+
+3. **Add PostgreSQL**:
+   - Click "New" → "Database" → "PostgreSQL"
+   - Railway will automatically set `DATABASE_URL`
+
+4. **Add Redis** (optional but recommended):
+   - Click "New" → "Database" → "Redis"
+   - Railway will automatically set `REDIS_URL`
+
+5. **Deploy the backend**:
+   - Click "New" → "GitHub Repo" → Select your forked repo
+   - Set the root directory to `backend`
+   - Railway will auto-detect and build the NestJS app
+
+6. **Set environment variables** in Railway dashboard:
+   ```
+   JWT_SECRET=your-secure-random-string-here
+   JWT_EXPIRES_IN=7d
+   NODE_ENV=production
+   FRONTEND_URL=https://your-frontend-domain.com
+   ```
+
+7. **Generate a domain**:
+   - Go to your service settings
+   - Click "Generate Domain" or add a custom domain
+
+### Environment Variables for Railway
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | Auto-provided by Railway PostgreSQL |
+| `REDIS_URL` | No | Auto-provided by Railway Redis |
+| `JWT_SECRET` | Yes | Secure random string for JWT signing |
+| `JWT_EXPIRES_IN` | No | Token expiration (default: 7d) |
+| `NODE_ENV` | No | Set to `production` |
+| `FRONTEND_URL` | No | Your frontend URL for CORS |
+| `OPENAI_API_KEY` | No | For AI features (uses rule-based fallback if not set) |
+
+### Seeding Production Database
+
+After deployment, you can seed the database using Railway CLI:
+
+```bash
+# Install Railway CLI
+npm install -g @railway/cli
+
+# Login
+railway login
+
+# Link to your project
+railway link
+
+# Run seed command
+railway run npm run db:seed
+```
+
+### Health Check Endpoints
+
+- `GET /api/health` - Full health check with database status
+- `GET /api/health/ready` - Readiness probe
+- `GET /api/health/live` - Liveness probe
+
 ## 📊 Test Accounts
 
 After seeding, you can log in with:

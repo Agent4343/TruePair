@@ -6,6 +6,9 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Trust proxy for Railway/cloud deployments
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
   // Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
@@ -18,10 +21,16 @@ async function bootstrap() {
     }),
   );
 
-  // CORS
+  // CORS - allow multiple origins for Railway
+  const allowedOrigins = process.env.FRONTEND_URL
+    ? process.env.FRONTEND_URL.split(',').map((url) => url.trim())
+    : ['http://localhost:3000'];
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: allowedOrigins,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   });
 
   // Swagger documentation
@@ -30,16 +39,20 @@ async function bootstrap() {
     .setDescription('Trust-first dating platform API')
     .setVersion('1.0')
     .addBearerAuth()
+    .addServer(
+      process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : '',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
+  // Railway provides PORT automatically
   const port = process.env.PORT || 3001;
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
 
-  console.log(`🚀 TrueMatch API running on http://localhost:${port}`);
-  console.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
+  console.log(`🚀 TrueMatch API running on port ${port}`);
+  console.log(`📚 API Documentation available at /api/docs`);
 }
 
 bootstrap();
