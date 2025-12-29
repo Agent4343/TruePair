@@ -17,6 +17,20 @@ async function bootstrap() {
   // Trust proxy for Railway/cloud deployments
   app.getHttpAdapter().getInstance().set('trust proxy', 1);
 
+  // Manual CORS middleware (backup)
+  app.use((req: any, res: any, next: any) => {
+    const origin = req.headers.origin || '*';
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,Accept,X-Requested-With');
+    
+    if (req.method === 'OPTIONS') {
+      return res.status(204).send();
+    }
+    next();
+  });
+
   // Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
