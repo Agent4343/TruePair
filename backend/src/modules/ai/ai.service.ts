@@ -1,9 +1,87 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+// Types for pattern-based analysis
+interface AnalysisResult {
+  score: number;
+  flags: string[];
+  insights: string[];
+}
+
+interface PatternRule {
+  pattern: RegExp;
+  flag?: string;
+  insight?: string;
+  scoreDelta: number;
+}
+
+interface WeightedPattern {
+  pattern: RegExp;
+  weight: number;
+}
+
 @Injectable()
 export class AIService {
   private readonly hasLLM: boolean;
+
+  // Safety analysis patterns
+  private readonly safetyRules: PatternRule[] = [
+    // Threat patterns (-30 each)
+    { pattern: /\b(kill|hurt|harm|die)\b/i, flag: 'potential_threat', scoreDelta: -30 },
+    { pattern: /\bi('ll| will)\s+find\s+you\b/i, flag: 'potential_threat', scoreDelta: -30 },
+    { pattern: /\byou('ll| will)\s+(regret|pay|suffer)\b/i, flag: 'potential_threat', scoreDelta: -30 },
+    // Pressure patterns (-10 each)
+    { pattern: /\bwhy\s+(won't|don't)\s+you\b/i, flag: 'pressure_language', scoreDelta: -10 },
+    { pattern: /\byou\s+(have|need|must)\s+to\b/i, flag: 'pressure_language', scoreDelta: -10 },
+    { pattern: /\bif\s+you\s+(really|truly)\s+(loved|cared)\b/i, flag: 'pressure_language', scoreDelta: -10 },
+    // Manipulation patterns (-15 each)
+    { pattern: /\bdon't\s+tell\s+anyone\b/i, flag: 'manipulation', scoreDelta: -15 },
+    { pattern: /\bkeep\s+(this|it)\s+secret\b/i, flag: 'manipulation', scoreDelta: -15 },
+    { pattern: /\bno\s+one\s+will\s+believe\b/i, flag: 'manipulation', scoreDelta: -15 },
+    // Positive signals
+    { pattern: /\bthank\s+you\b/i, insight: 'polite_language', scoreDelta: 0 },
+    { pattern: /\bi\s+understand\b/i, insight: 'empathetic_language', scoreDelta: 0 },
+  ];
+
+  // Intent analysis patterns
+  private readonly casualPatterns: WeightedPattern[] = [
+    { pattern: /\bhookup\b/g, weight: 3 },
+    { pattern: /\bfwb\b/g, weight: 3 },
+    { pattern: /\bno\s+strings\b/g, weight: 3 },
+    { pattern: /\bjust\s+fun\b/g, weight: 2 },
+    { pattern: /\bnothing\s+serious\b/g, weight: 3 },
+  ];
+
+  private readonly seriousPatterns: WeightedPattern[] = [
+    { pattern: /\brelationship\b/g, weight: 2 },
+    { pattern: /\bcommit(ment|ted)?\b/g, weight: 3 },
+    { pattern: /\bfuture\s+together\b/g, weight: 3 },
+    { pattern: /\blong[\s-]?term\b/g, weight: 3 },
+    { pattern: /\bmarriage\b/g, weight: 4 },
+  ];
+
+  // Consistency analysis patterns
+  private readonly contradictionPairs = [
+    { a: /\bi\s+always\b/i, b: /\bi\s+never\b/i },
+    { a: /\bi\s+love\b/i, b: /\bi\s+hate\b/i },
+    { a: /\bi\s+want\b/i, b: /\bi\s+don't\s+want\b/i },
+  ];
+
+  private readonly hedgingPatterns: RegExp[] = [
+    /\bi\s+guess\b/i,
+    /\bmaybe\b/i,
+    /\bprobably\b/i,
+    /\bi\s+think\b/i,
+    /\bsort\s+of\b/i,
+    /\bkind\s+of\b/i,
+  ];
+
+  private readonly definitivePatterns: RegExp[] = [
+    /\bi\s+definitely\b/i,
+    /\bi'm\s+certain\b/i,
+    /\bi\s+know\s+for\s+sure\b/i,
+    /\babsolutely\b/i,
+  ];
 
   constructor(private configService: ConfigService) {
     this.hasLLM = !!this.configService.get<string>('OPENAI_API_KEY');
@@ -19,12 +97,7 @@ export class AIService {
   async analyzeText(
     text: string,
     analysisType: 'safety' | 'intent' | 'consistency',
-  ): Promise<{
-    score: number;
-    flags: string[];
-    insights: string[];
-  }> {
-    // Use rule-based analysis (can be enhanced with LLM if API key is available)
+  ): Promise<AnalysisResult> {
     switch (analysisType) {
       case 'safety':
         return this.analyzeSafetyRuleBased(text);
@@ -37,109 +110,59 @@ export class AIService {
     }
   }
 
-  private analyzeSafetyRuleBased(text: string): {
-    score: number;
-    flags: string[];
-    insights: string[];
-  } {
-    let score = 100;
+  /**
+   * Applies pattern rules to text and accumulates results
+   */
+  private applyPatternRules(
+    text: string,
+    rules: PatternRule[],
+    baseScore: number,
+  ): AnalysisResult {
     const flags: string[] = [];
     const insights: string[] = [];
+    let score = baseScore;
 
-    const lowerText = text.toLowerCase();
-
-    // Check for threat patterns
-    const threatPatterns = [
-      /\b(kill|hurt|harm|die)\b/i,
-      /\bi('ll| will)\s+find\s+you\b/i,
-      /\byou('ll| will)\s+(regret|pay|suffer)\b/i,
-    ];
-
-    for (const pattern of threatPatterns) {
-      if (pattern.test(lowerText)) {
-        score -= 30;
-        flags.push('potential_threat');
+    for (const rule of rules) {
+      if (rule.pattern.test(text)) {
+        score += rule.scoreDelta;
+        if (rule.flag) flags.push(rule.flag);
+        if (rule.insight) insights.push(rule.insight);
       }
-    }
-
-    // Check for pressure patterns
-    const pressurePatterns = [
-      /\bwhy\s+(won't|don't)\s+you\b/i,
-      /\byou\s+(have|need|must)\s+to\b/i,
-      /\bif\s+you\s+(really|truly)\s+(loved|cared)\b/i,
-    ];
-
-    for (const pattern of pressurePatterns) {
-      if (pattern.test(lowerText)) {
-        score -= 10;
-        flags.push('pressure_language');
-      }
-    }
-
-    // Check for manipulation patterns
-    const manipulationPatterns = [
-      /\bdon't\s+tell\s+anyone\b/i,
-      /\bkeep\s+(this|it)\s+secret\b/i,
-      /\bno\s+one\s+will\s+believe\b/i,
-    ];
-
-    for (const pattern of manipulationPatterns) {
-      if (pattern.test(lowerText)) {
-        score -= 15;
-        flags.push('manipulation');
-      }
-    }
-
-    // Positive signals
-    if (/\bthank\s+you\b/i.test(lowerText)) {
-      insights.push('polite_language');
-    }
-    if (/\bi\s+understand\b/i.test(lowerText)) {
-      insights.push('empathetic_language');
     }
 
     return { score: Math.max(0, score), flags, insights };
   }
 
-  private analyzeIntentRuleBased(text: string): {
-    score: number;
-    flags: string[];
-    insights: string[];
-  } {
+  /**
+   * Calculates weighted score from pattern matches
+   */
+  private calculateWeightedScore(text: string, patterns: WeightedPattern[]): number {
+    let score = 0;
+    for (const { pattern, weight } of patterns) {
+      const matches = text.match(pattern) || [];
+      score += matches.length * weight;
+    }
+    return score;
+  }
+
+  /**
+   * Counts how many patterns match in the text
+   */
+  private countPatternMatches(text: string, patterns: RegExp[]): number {
+    return patterns.filter(pattern => pattern.test(text)).length;
+  }
+
+  private analyzeSafetyRuleBased(text: string): AnalysisResult {
+    return this.applyPatternRules(text.toLowerCase(), this.safetyRules, 100);
+  }
+
+  private analyzeIntentRuleBased(text: string): AnalysisResult {
     const flags: string[] = [];
     const insights: string[] = [];
-    let casualScore = 0;
-    let seriousScore = 0;
-
     const lowerText = text.toLowerCase();
 
-    // Casual relationship indicators
-    const casualPatterns = [
-      { pattern: /\bhookup\b/g, weight: 3 },
-      { pattern: /\bfwb\b/g, weight: 3 },
-      { pattern: /\bno\s+strings\b/g, weight: 3 },
-      { pattern: /\bjust\s+fun\b/g, weight: 2 },
-      { pattern: /\bnothing\s+serious\b/g, weight: 3 },
-    ];
-
-    for (const { pattern, weight } of casualPatterns) {
-      const matches = lowerText.match(pattern) || [];
-      casualScore += matches.length * weight;
-    }
-
-    // Serious relationship indicators
-    const seriousPatterns = [
-      { pattern: /\brelationship\b/g, weight: 2 },
-      { pattern: /\bcommit(ment|ted)?\b/g, weight: 3 },
-      { pattern: /\bfuture\s+together\b/g, weight: 3 },
-      { pattern: /\blong[\s-]?term\b/g, weight: 3 },
-      { pattern: /\bmarriage\b/g, weight: 4 },
-    ];
-
-    for (const { pattern, weight } of seriousPatterns) {
-      const matches = lowerText.match(pattern) || [];
-      seriousScore += matches.length * weight;
-    }
+    const casualScore = this.calculateWeightedScore(lowerText, this.casualPatterns);
+    const seriousScore = this.calculateWeightedScore(lowerText, this.seriousPatterns);
 
     if (casualScore > seriousScore * 2) {
       flags.push('casual_leaning');
@@ -154,25 +177,14 @@ export class AIService {
     return { score: Math.max(0, Math.min(100, score)), flags, insights };
   }
 
-  private analyzeConsistencyRuleBased(text: string): {
-    score: number;
-    flags: string[];
-    insights: string[];
-  } {
+  private analyzeConsistencyRuleBased(text: string): AnalysisResult {
     const flags: string[] = [];
     const insights: string[] = [];
     let score = 70;
-
     const lowerText = text.toLowerCase();
 
     // Check for contradictions
-    const contradictions = [
-      { a: /\bi\s+always\b/i, b: /\bi\s+never\b/i },
-      { a: /\bi\s+love\b/i, b: /\bi\s+hate\b/i },
-      { a: /\bi\s+want\b/i, b: /\bi\s+don't\s+want\b/i },
-    ];
-
-    for (const { a, b } of contradictions) {
+    for (const { a, b } of this.contradictionPairs) {
       if (a.test(lowerText) && b.test(lowerText)) {
         score -= 15;
         flags.push('potential_contradiction');
@@ -180,36 +192,13 @@ export class AIService {
     }
 
     // Check for hedging language (uncertainty)
-    const hedgingPatterns = [
-      /\bi\s+guess\b/i,
-      /\bmaybe\b/i,
-      /\bprobably\b/i,
-      /\bi\s+think\b/i,
-      /\bsort\s+of\b/i,
-      /\bkind\s+of\b/i,
-    ];
-
-    let hedgeCount = 0;
-    for (const pattern of hedgingPatterns) {
-      if (pattern.test(lowerText)) {
-        hedgeCount++;
-      }
-    }
-
-    if (hedgeCount >= 3) {
+    if (this.countPatternMatches(lowerText, this.hedgingPatterns) >= 3) {
       score -= 10;
       flags.push('high_uncertainty');
     }
 
     // Positive: Definitive language
-    const definitivePatterns = [
-      /\bi\s+definitely\b/i,
-      /\bi'm\s+certain\b/i,
-      /\bi\s+know\s+for\s+sure\b/i,
-      /\babsolutely\b/i,
-    ];
-
-    for (const pattern of definitivePatterns) {
+    for (const pattern of this.definitivePatterns) {
       if (pattern.test(lowerText)) {
         insights.push('confident_language');
         score += 5;
@@ -255,38 +244,54 @@ export class AIService {
     score: number;
     factors: { specificity: number; depth: number; authenticity: number };
   } {
-    const words = answer.split(/\s+/);
-    const wordCount = words.length;
+    const wordCount = answer.split(/\s+/).length;
 
-    // Specificity: Contains numbers, names, specific details
-    let specificity = 50;
-    if (/\d/.test(answer)) specificity += 15;
-    if (/\b[A-Z][a-z]+\b/.test(answer)) specificity += 10;
-    if (wordCount >= 20) specificity += 15;
-    if (wordCount >= 50) specificity += 10;
+    const specificity = this.calculateFactorScore(50, [
+      { condition: /\d/.test(answer), delta: 15 },
+      { condition: /\b[A-Z][a-z]+\b/.test(answer), delta: 10 },
+      { condition: wordCount >= 20, delta: 15 },
+      { condition: wordCount >= 50, delta: 10 },
+    ]);
 
-    // Depth: Contains explanations, examples
-    let depth = 50;
-    if (/\bbecause\b|\bsince\b/i.test(answer)) depth += 15;
-    if (/\bfor example\b|\blike when\b/i.test(answer)) depth += 15;
-    if (wordCount >= 30) depth += 10;
+    const depth = this.calculateFactorScore(50, [
+      { condition: /\bbecause\b|\bsince\b/i.test(answer), delta: 15 },
+      { condition: /\bfor example\b|\blike when\b/i.test(answer), delta: 15 },
+      { condition: wordCount >= 30, delta: 10 },
+    ]);
 
-    // Authenticity: Personal pronouns, emotional language
-    let authenticity = 50;
-    if (/\bi\s+(feel|think|believe|value)\b/i.test(answer)) authenticity += 20;
-    if (/\bpersonally\b|\bfor me\b/i.test(answer)) authenticity += 15;
-    // Generic language reduces authenticity
-    if (/\beveryone\b|\bpeople\b|\bnormal\b/i.test(answer)) authenticity -= 10;
+    const authenticity = this.calculateFactorScore(50, [
+      { condition: /\bi\s+(feel|think|believe|value)\b/i.test(answer), delta: 20 },
+      { condition: /\bpersonally\b|\bfor me\b/i.test(answer), delta: 15 },
+      { condition: /\beveryone\b|\bpeople\b|\bnormal\b/i.test(answer), delta: -10 },
+    ]);
 
     const score = Math.round((specificity + depth + authenticity) / 3);
 
     return {
-      score: Math.max(0, Math.min(100, score)),
+      score: this.clampScore(score),
       factors: {
-        specificity: Math.max(0, Math.min(100, specificity)),
-        depth: Math.max(0, Math.min(100, depth)),
-        authenticity: Math.max(0, Math.min(100, authenticity)),
+        specificity: this.clampScore(specificity),
+        depth: this.clampScore(depth),
+        authenticity: this.clampScore(authenticity),
       },
     };
+  }
+
+  /**
+   * Calculates a factor score by applying conditional deltas
+   */
+  private calculateFactorScore(
+    base: number,
+    rules: { condition: boolean; delta: number }[],
+  ): number {
+    return rules.reduce((score, { condition, delta }) =>
+      condition ? score + delta : score, base);
+  }
+
+  /**
+   * Clamps score to valid range [0, 100]
+   */
+  private clampScore(score: number): number {
+    return Math.max(0, Math.min(100, score));
   }
 }
