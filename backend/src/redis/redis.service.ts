@@ -1,45 +1,72 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(RedisService.name);
   private client: Redis | null = null;
   private isConnected = false;
+  private hasLoggedError = false;
 
   constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
+    const redisUrl = this.configService.get<string>('REDIS_URL');
+    
+    if (!redisUrl) {
+      this.logger.log('Redis URL not configured, running without cache');
+      return;
+    }
+
     try {
-      const redisUrl = this.configService.get<string>('REDIS_URL');
-      if (redisUrl) {
-        this.client = new Redis(redisUrl, {
-          maxRetriesPerRequest: 3,
-          lazyConnect: true,
-        });
+      this.client = new Redis(redisUrl, {
+        maxRetriesPerRequest: 1,
+        retryStrategy: (times) => {
+          // Only retry once, then give up
+          if (times > 1) {
+            return null; // Stop retrying
+          }
+          return 1000; // Retry after 1 second
+        },
+        reconnectOnError: () => false, // Don't reconnect on errors
+        lazyConnect: true,
+      });
 
-        this.client.on('connect', () => {
-          this.isConnected = true;
-          console.log('📦 Redis connected');
-        });
+      this.client.on('connect', () => {
+        this.isConnected = true;
+        this.logger.log('Redis connected successfully');
+      });
 
-        this.client.on('error', (err) => {
-          console.warn('Redis connection error:', err.message);
-          this.isConnected = false;
-        });
+      this.client.on('error', (err) => {
+        if (!this.hasLoggedError) {
+          this.logger.warn(`Redis unavailable: ${err.message} - running without cache`);
+          this.hasLoggedError = true;
+        }
+        this.isConnected = false;
+      });
 
-        await this.client.connect();
-      } else {
-        console.log('💡 Redis URL not configured, running without cache');
+      this.client.on('close', () => {
+        this.isConnected = false;
+      });
+
+      await this.client.connect();
+    } catch (error: any) {
+      if (!this.hasLoggedError) {
+        this.logger.warn(`Redis initialization failed: ${error.message} - running without cache`);
+        this.hasLoggedError = true;
       }
-    } catch (error) {
-      console.warn('Redis initialization failed, running without cache:', error);
+      this.client = null;
     }
   }
 
   async onModuleDestroy() {
     if (this.client) {
-      await this.client.quit();
+      try {
+        await this.client.quit();
+      } catch {
+        // Ignore quit errors
+      }
     }
   }
 
