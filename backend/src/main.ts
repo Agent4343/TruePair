@@ -29,13 +29,20 @@ async function bootstrap() {
     }),
   );
 
-  // CORS - allow all origins for now (can restrict later)
+  // CORS - allow all origins
   app.enableCors({
-    origin: true, // Allow all origins
+    origin: (origin, callback) => {
+      // Always allow - reflect the origin back
+      callback(null, origin || '*');
+    },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   });
+  
+  logger.log('CORS enabled for all origins');
 
   // Swagger documentation
   const config = new DocumentBuilder()
