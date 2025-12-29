@@ -137,13 +137,24 @@ export class MatchingService {
   async pass(userId: string, targetUserId: string) {
     // Create a "pass" as a like with a flag (or separate table)
     // For simplicity, we'll just record it as seen
-    await this.prisma.like
-      .create({
+    try {
+      await this.prisma.like.create({
         data: { fromUserId: userId, toUserId: targetUserId },
-      })
-      .catch(() => {
-        // Already exists, ignore
       });
+    } catch (error) {
+      // Only ignore unique constraint violation (P2002) - already exists
+      // Re-throw any other errors (connection issues, validation errors, etc.)
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'P2002'
+      ) {
+        // Already exists, ignore
+      } else {
+        throw error;
+      }
+    }
 
     return { passed: true };
   }
