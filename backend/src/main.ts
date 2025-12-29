@@ -6,7 +6,7 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   
-  logger.log('Starting TrueMatch API...');
+  logger.log('Starting TrueMatch API v2...'); // Version marker to verify deployment
   logger.log(`Node environment: ${process.env.NODE_ENV || 'development'}`);
   logger.log(`Database URL configured: ${process.env.DATABASE_URL ? 'Yes' : 'No'}`);
   
@@ -15,21 +15,29 @@ async function bootstrap() {
   });
 
   // Trust proxy for Railway/cloud deployments
-  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.set('trust proxy', 1);
 
-  // Manual CORS middleware (backup)
-  app.use((req: any, res: any, next: any) => {
-    const origin = req.headers.origin || '*';
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,Accept,X-Requested-With');
+  // CORS - handle manually to ensure it works
+  expressApp.use((req: any, res: any, next: any) => {
+    const origin = req.headers.origin;
     
+    // Set CORS headers
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,Accept,X-Requested-With,Origin');
+    
+    // Handle preflight
     if (req.method === 'OPTIONS') {
-      return res.status(204).send();
+      res.status(204).end();
+      return;
     }
+    
     next();
   });
+
+  logger.log('Manual CORS middleware configured');
 
   // Global validation pipe
   app.useGlobalPipes(
@@ -42,21 +50,6 @@ async function bootstrap() {
       },
     }),
   );
-
-  // CORS - allow all origins
-  app.enableCors({
-    origin: (origin, callback) => {
-      // Always allow - reflect the origin back
-      callback(null, origin || '*');
-    },
-    credentials: true,
-    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
-    preflightContinue: false,
-    optionsSuccessStatus: 204,
-  });
-  
-  logger.log('CORS enabled for all origins');
 
   // Swagger documentation
   const config = new DocumentBuilder()
@@ -76,7 +69,7 @@ async function bootstrap() {
   const port = process.env.PORT || 3001;
   await app.listen(port, '0.0.0.0');
 
-  console.log(`🚀 TrueMatch API running on port ${port}`);
+  console.log(`🚀 TrueMatch API v2 running on port ${port}`);
   console.log(`📚 API Documentation available at /api/docs`);
 }
 
